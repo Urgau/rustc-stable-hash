@@ -43,8 +43,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: install miri
       run: rustup toolchain add nightly --no-self-update --component miri && rustup default nightly
-    - name: cargo miri test
-      run: |
+    - run: |
         cargo miri test --target=${{ matrix.target }} --all-features
       env:
           MIRIFLAGS: -Zmiri-strict-provenance

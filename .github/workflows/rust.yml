@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
+    - run: rustup default stable
     - run: cargo build
     - run: cargo test
     - run: cargo test --release

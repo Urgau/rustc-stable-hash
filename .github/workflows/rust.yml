@@ -1,19 +1,59 @@
-name: Rust
+name: CI
+
+permissions:
+  contents: read
 
 on: [push, pull_request]
 
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  RUSTUP_MAX_RETRIES: 10
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: rust-lang/simpleinfra/github-actions/simple-ci@master
-    - name: "32-bit cross testing"
-      run: |
-        rustup toolchain install nightly
-        rustup override set nightly
-        rustup component add miri
-        cargo +nightly miri test --target i686-unknown-linux-gnu
+  test:
     strategy:
       matrix:
         os: [ubuntu, windows, macos]
+    runs-on: ${{ matrix.os }}-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - run: cargo build
+    - run: cargo test
+    - run: cargo test --release
+    - run: rustup default nightly
+    - run: cargo test --all-features
+    - name: install miri
+      run: rustup toolchain add nightly --no-self-update --component miri
+    - name: test on miri
+      run: |
+        cargo miri test --all-features
+      env:
+          MIRIFLAGS: -Zmiri-strict-provenance
+          RUSTDOCFLAGS: ${{ env.RUSTDOCFLAGS }} -Z randomize-layout
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Z randomize-layout
+  cross-test:
+    strategy:
+      matrix:
+        targets: [
+          "i686-unknown-linux-gnu" # 32-bits, little-endian
+          "mips-unknown-linux-gnu" # 32-bits, big-endian
+        ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - name: install miri
+      run: rustup toolchain add nightly --no-self-update --component miri && rustup default nightly
+    - name: test
+      run: |
+        cargo miri test --target={{ matrix.target }} --all-features
+      env:
+          MIRIFLAGS: -Zmiri-strict-provenance
+          RUSTDOCFLAGS: ${{ env.RUSTDOCFLAGS }} -Z randomize-layout
+          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Z randomize-layout

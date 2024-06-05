@@ -28,21 +28,13 @@ jobs:
     - run: cargo test --release
     - run: rustup default nightly
     - run: cargo test --all-features
-    - name: install miri
-      run: rustup toolchain add nightly --no-self-update --component miri
-    - name: test on miri
-      run: |
-        cargo miri test --all-features
-      env:
-          MIRIFLAGS: -Zmiri-strict-provenance
-          RUSTDOCFLAGS: ${{ env.RUSTDOCFLAGS }} -Z randomize-layout
-          RUSTFLAGS: ${{ env.RUSTFLAGS }} -Z randomize-layout
   cross-test:
     strategy:
       matrix:
         targets: [
-          "i686-unknown-linux-gnu" # 32-bits, little-endian
-          "mips-unknown-linux-gnu" # 32-bits, big-endian
+          "x86_64-unknown-linux-gnu", # 64-bits, little-endian
+          "i686-unknown-linux-gnu",   # 32-bits, little-endian
+          "mips-unknown-linux-gnu"    # 32-bits, big-endian
         ]
     runs-on: ubuntu-latest
     timeout-minutes: 30

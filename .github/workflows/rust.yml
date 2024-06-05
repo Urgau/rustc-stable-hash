@@ -31,7 +31,7 @@ jobs:
   cross-test:
     strategy:
       matrix:
-        targets: [
+        target: [
           "x86_64-unknown-linux-gnu", # 64-bits, little-endian
           "i686-unknown-linux-gnu",   # 32-bits, little-endian
           "mips-unknown-linux-gnu"    # 32-bits, big-endian
@@ -44,7 +44,7 @@ jobs:
       run: rustup toolchain add nightly --no-self-update --component miri && rustup default nightly
     - name: test
       run: |
-        cargo miri test --target={{ matrix.target }} --all-features
+        cargo miri test --target=${{ matrix.target }} --all-features
       env:
           MIRIFLAGS: -Zmiri-strict-provenance
           RUSTDOCFLAGS: ${{ env.RUSTDOCFLAGS }} -Z randomize-layout

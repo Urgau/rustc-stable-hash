@@ -2,7 +2,7 @@
 
 // This code is very hot and uses lots of arithmetic, avoid overflow checks for performance.
 // See https://github.com/rust-lang/rust/pull/119440#issuecomment-1874255727
-use crate::int_overflow::{DebugStrictAdd, DebugStrictSub};
+use crate::int_overflow::{debug_strict_add, debug_strict_sub};
 
 use std::hash::Hasher;
 use std::mem::{self, MaybeUninit};
@@ -109,19 +109,19 @@ unsafe fn copy_nonoverlapping_small(src: *const u8, dst: *mut u8, count: usize) 
         }
 
         let mut i = 0;
-        if i.debug_strict_add(3) < count {
+        if debug_strict_add(i, 3) < count {
             ptr::copy_nonoverlapping(src.add(i), dst.add(i), 4);
-            i = i.debug_strict_add(4);
+            i = debug_strict_add(i, 4);
         }
 
-        if i.debug_strict_add(1) < count {
+        if debug_strict_add(i, 1) < count {
             ptr::copy_nonoverlapping(src.add(i), dst.add(i), 2);
-            i = i.debug_strict_add(2)
+            i = debug_strict_add(i, 2);
         }
 
         if i < count {
             *dst.add(i) = *src.add(i);
-            i = i.debug_strict_add(1);
+            i = debug_strict_add(i, 1);
         }
 
         debug_assert_eq!(i, count);
@@ -216,18 +216,22 @@ impl SipHasher128 {
     #[inline]
     pub fn short_write<const LEN: usize>(&mut self, bytes: [u8; LEN]) {
         let nbuf = self.nbuf;
-        debug_assert!(LEN <= 8);
-        debug_assert!(nbuf < BUFFER_SIZE);
-        debug_assert!(nbuf + LEN < BUFFER_WITH_SPILL_SIZE);
 
-        if nbuf.debug_strict_add(LEN) < BUFFER_SIZE {
+        #[allow(clippy::arithmetic_side_effects)]
+        {
+            debug_assert!(LEN <= 8);
+            debug_assert!(nbuf < BUFFER_SIZE);
+            debug_assert!(nbuf + LEN < BUFFER_WITH_SPILL_SIZE);
+        }
+
+        if debug_strict_add(nbuf, LEN) < BUFFER_SIZE {
             unsafe {
                 // The memcpy call is optimized away because the size is known.
                 let dst = (self.buf.as_mut_ptr() as *mut u8).add(nbuf);
                 ptr::copy_nonoverlapping(bytes.as_ptr(), dst, LEN);
             }
 
-            self.nbuf = nbuf.debug_strict_add(LEN);
+            self.nbuf = debug_strict_add(nbuf, LEN);
 
             return;
         }
@@ -245,10 +249,14 @@ impl SipHasher128 {
     unsafe fn short_write_process_buffer<const LEN: usize>(&mut self, bytes: [u8; LEN]) {
         unsafe {
             let nbuf = self.nbuf;
-            debug_assert!(LEN <= 8);
-            debug_assert!(nbuf < BUFFER_SIZE);
-            debug_assert!(nbuf + LEN >= BUFFER_SIZE);
-            debug_assert!(nbuf + LEN < BUFFER_WITH_SPILL_SIZE);
+
+            #[allow(clippy::arithmetic_side_effects)]
+            {
+                debug_assert!(LEN <= 8);
+                debug_assert!(nbuf < BUFFER_SIZE);
+                debug_assert!(nbuf + LEN >= BUFFER_SIZE);
+                debug_assert!(nbuf + LEN < BUFFER_WITH_SPILL_SIZE);
+            }
 
             // Copy first part of input into end of buffer, possibly into spill
             // element. The memcpy call is optimized away because the size is known.
@@ -269,7 +277,7 @@ impl SipHasher128 {
             // is known. And the whole copy is optimized away for LEN == 1.
             let dst = self.buf.as_mut_ptr() as *mut u8;
             let src = self.buf.get_unchecked(BUFFER_SPILL_INDEX) as *const _ as *const u8;
-            ptr::copy_nonoverlapping(src, dst, LEN - 1);
+            ptr::copy_nonoverlapping(src, dst, debug_strict_sub(LEN, 1));
 
             // This function should only be called when the write fills the buffer.
             // Therefore, when LEN == 1, the new `self.nbuf` must be zero.
@@ -277,9 +285,9 @@ impl SipHasher128 {
             self.nbuf = if LEN == 1 {
                 0
             } else {
-                nbuf.debug_strict_add(LEN).debug_strict_sub(BUFFER_SIZE)
+                debug_strict_sub(debug_strict_add(nbuf, LEN), BUFFER_SIZE)
             };
-            self.processed = self.processed.debug_strict_add(BUFFER_SIZE);
+            self.processed = debug_strict_add(self.processed, BUFFER_SIZE);
         }
     }
 
@@ -290,7 +298,7 @@ impl SipHasher128 {
         let nbuf = self.nbuf;
         debug_assert!(nbuf < BUFFER_SIZE);
 
-        if nbuf.debug_strict_add(length) < BUFFER_SIZE {
+        if debug_strict_add(nbuf, length) < BUFFER_SIZE {
             unsafe {
                 let dst = (self.buf.as_mut_ptr() as *mut u8).add(nbuf);
 
@@ -302,7 +310,7 @@ impl SipHasher128 {
                 }
             }
 
-            self.nbuf = nbuf.debug_strict_add(length);
+            self.nbuf = debug_strict_add(nbuf, length);
 
             return;
         }
@@ -321,14 +329,18 @@ impl SipHasher128 {
         unsafe {
             let length = msg.len();
             let nbuf = self.nbuf;
-            debug_assert!(nbuf < BUFFER_SIZE);
-            debug_assert!(nbuf + length >= BUFFER_SIZE);
+
+            #[allow(clippy::arithmetic_side_effects)]
+            {
+                debug_assert!(nbuf < BUFFER_SIZE);
+                debug_assert!(nbuf + length >= BUFFER_SIZE);
+            }
 
             // Always copy first part of input into current element of buffer.
             // This function should only be called when the write fills the buffer,
             // so we know that there is enough input to fill the current element.
             let valid_in_elem = nbuf % ELEM_SIZE;
-            let needed_in_elem = ELEM_SIZE.debug_strict_sub(valid_in_elem);
+            let needed_in_elem = debug_strict_sub(ELEM_SIZE, valid_in_elem);
 
             let src = msg.as_ptr();
             let dst = (self.buf.as_mut_ptr() as *mut u8).add(nbuf);
@@ -340,7 +352,7 @@ impl SipHasher128 {
             // ELEM_SIZE` to show the compiler that this loop's upper bound is > 0.
             // We know that is true, because last step ensured we have a full
             // element in the buffer.
-            let last = (nbuf / ELEM_SIZE).debug_strict_add(1);
+            let last = debug_strict_add(nbuf / ELEM_SIZE, 1);
 
             for i in 0..last {
                 let elem = self.buf.get_unchecked(i).assume_init().to_le();
@@ -351,7 +363,7 @@ impl SipHasher128 {
 
             // Process the remaining element-sized chunks of input.
             let mut processed = needed_in_elem;
-            let input_left = length.debug_strict_sub(processed);
+            let input_left = debug_strict_sub(length, processed);
             let elems_left = input_left / ELEM_SIZE;
             let extra_bytes_left = input_left % ELEM_SIZE;
 
@@ -362,7 +374,7 @@ impl SipHasher128 {
                 self.state.v3 ^= elem;
                 Sip13Rounds::c_rounds(&mut self.state);
                 self.state.v0 ^= elem;
-                processed = processed.debug_strict_add(ELEM_SIZE);
+                processed = debug_strict_add(processed, ELEM_SIZE);
             }
 
             // Copy remaining input into start of buffer.
@@ -371,9 +383,7 @@ impl SipHasher128 {
             copy_nonoverlapping_small(src, dst, extra_bytes_left);
 
             self.nbuf = extra_bytes_left;
-            self.processed = self
-                .processed
-                .debug_strict_add(nbuf.debug_strict_add(processed));
+            self.processed = debug_strict_add(self.processed, debug_strict_add(nbuf, processed));
         }
     }
 
@@ -411,7 +421,7 @@ impl SipHasher128 {
         };
 
         // Finalize the hash.
-        let length = self.processed.debug_strict_add(self.nbuf);
+        let length = debug_strict_add(self.processed, self.nbuf);
         let b: u64 = ((length as u64 & 0xff) << 56) | elem;
 
         state.v3 ^= b;

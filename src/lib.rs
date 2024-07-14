@@ -5,6 +5,8 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(unreachable_pub)]
 
+#[cfg(feature = "blake3")]
+mod blake3;
 mod int_overflow;
 mod sip128;
 mod stable_hasher;
@@ -14,12 +16,19 @@ pub mod hashers {
     #[doc(inline)]
     pub use super::sip128::{SipHasher128, SipHasher128Hash};
 
+    #[cfg(feature = "blake3")]
+    #[doc(inline)]
+    pub use super::blake3::{Blake3Hash, Blake3Hasher};
+
     /// Stable 128-bits Sip Hasher
     ///
     /// [`StableHasher`] version of [`SipHasher128`].
     ///
     /// [`StableHasher`]: super::StableHasher
     pub type StableSipHasher128 = super::StableHasher<SipHasher128>;
+
+    #[cfg(feature = "blake3")]
+    pub type StableBlake3Hasher = super::StableHasher<Blake3Hasher>;
 }
 
 #[doc(inline)]

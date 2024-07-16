@@ -7,5 +7,9 @@ readme = "README.md"
 repository = "https://github.com/rust-lang/rustc-stable-hash"
 edition = "2021"
 
+[dependencies]
+blake2 = { version = "0.10.0", default-features = false, optional = true }
+
 [features]
+default = ["blake2"]
 nightly = [] # for feature(hasher_prefixfree_extras)

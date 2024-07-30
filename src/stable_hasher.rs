@@ -120,6 +120,26 @@ pub trait FromStableHash: Sized {
     fn from(hash: Self::Hash) -> Self;
 }
 
+/// Corrolary to [`FromStableHash`]
+pub trait IntoStableHash<T>: Sized {
+    fn into(self) -> T;
+}
+
+impl<T, U> IntoStableHash<U> for T
+where
+    U: FromStableHash<Hash = T>,
+{
+    /// Calls `U::from(self)`.
+    ///
+    /// That is, this conversion is whatever the implementation of
+    /// <code>[FromStableHash]&lt;T&gt; for U</code> chooses to do.
+    #[inline]
+    #[track_caller]
+    fn into(self) -> U {
+        U::from(self)
+    }
+}
+
 impl<H: ExtendedHasher + Default> StableHasher<H> {
     /// Creates a new [`StableHasher`].
     ///

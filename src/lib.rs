@@ -36,7 +36,7 @@ pub mod hashers {
 pub use stable_hasher::StableHasher;
 
 #[doc(inline)]
-pub use stable_hasher::FromStableHash;
+pub use stable_hasher::{FromStableHash, IntoStableHash};
 
 #[doc(inline)]
 pub use stable_hasher::ExtendedHasher;

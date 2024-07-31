@@ -13,10 +13,8 @@ use crate::{SipHasher128Hash, StableSipHasher128};
 #[derive(Debug, PartialEq)]
 struct TestHash([u64; 2]);
 
-impl FromStableHash for TestHash {
-    type Hash = SipHasher128Hash;
-
-    fn from(SipHasher128Hash(hash): Self::Hash) -> TestHash {
+impl FromStableHash<SipHasher128Hash> for TestHash {
+    fn from(SipHasher128Hash(hash): SipHasher128Hash) -> TestHash {
         TestHash(hash)
     }
 }

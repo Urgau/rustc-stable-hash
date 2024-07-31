@@ -74,9 +74,7 @@ pub trait ExtendedHasher: Hasher {
 /// use std::hash::Hasher;
 ///
 /// struct Hash128([u64; 2]);
-/// impl FromStableHash for Hash128 {
-///     type Hash = SipHasher128Hash;
-///
+/// impl FromStableHash<SipHasher128Hash> for Hash128 {
 ///     fn from(SipHasher128Hash(hash): SipHasher128Hash) -> Hash128 {
 ///         Hash128(hash)
 ///     }
@@ -101,9 +99,7 @@ pub struct StableHasher<H: ExtendedHasher> {
 ///
 /// struct Hash128(u128);
 ///
-/// impl FromStableHash for Hash128 {
-///     type Hash = [u64; 2];
-///
+/// impl FromStableHash<[u64; 2]> for Hash128 {
 ///     fn from(hash: [u64; 2]) -> Hash128 {
 ///         let upper: u128 = hash[0] as u128;
 ///         let lower: u128 = hash[1] as u128;
@@ -112,12 +108,10 @@ pub struct StableHasher<H: ExtendedHasher> {
 ///     }
 /// }
 /// ```
-pub trait FromStableHash: Sized {
-    type Hash;
-
+pub trait FromStableHash<H>: Sized {
     /// Convert the finalized state of a [`StableHasher`] and construct
     /// an [`Self`] containing the processed hash.
-    fn from(hash: Self::Hash) -> Self;
+    fn from(hash: H) -> Self;
 }
 
 /// Corrolary to [`FromStableHash`]
@@ -127,7 +121,7 @@ pub trait IntoStableHash<T>: Sized {
 
 impl<T, U> IntoStableHash<U> for T
 where
-    U: FromStableHash<Hash = T>,
+    U: FromStableHash<T>,
 {
     /// Calls `U::from(self)`.
     ///
@@ -183,7 +177,7 @@ impl<H: ExtendedHasher> StableHasher<H> {
     /// To be used in-place of [`Hasher::finish`].
     #[inline]
     #[must_use]
-    pub fn finish<W: FromStableHash<Hash = H::Hash>>(self) -> W {
+    pub fn finish<W: FromStableHash<H::Hash>>(self) -> W {
         W::from(self.state.finish())
     }
 }

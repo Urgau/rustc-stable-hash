@@ -177,8 +177,11 @@ impl<H: ExtendedHasher> StableHasher<H> {
     /// To be used in-place of [`Hasher::finish`].
     #[inline]
     #[must_use]
-    pub fn finish<W: FromStableHash<H::Hash>>(self) -> W {
-        W::from(self.state.finish())
+    pub fn finish<W>(self) -> W
+    where
+        H::Hash: IntoStableHash<W>,
+    {
+        IntoStableHash::into(self.state.finish())
     }
 }
 
